@@ -8,7 +8,6 @@ use prontua_backend::features::auth::services::JwtService;
 use prontua_backend::infrastructure::config::Config;
 use prontua_backend::infrastructure::database;
 use std::sync::Arc;
-use tracing_subscriber;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

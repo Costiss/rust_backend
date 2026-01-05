@@ -1,5 +1,7 @@
 /// Auth endpoint handlers
-use crate::features::auth::models::{AuthResponse, RefreshTokenRequest, SignInRequest, SignUpRequest};
+use crate::features::auth::models::{
+    AuthResponse, RefreshTokenRequest, SignInRequest, SignUpRequest,
+};
 use crate::features::auth::services::{JwtService, PasswordService};
 use crate::shared::AppError;
 use axum::{extract::State, Json};
@@ -18,19 +20,16 @@ pub async fn sign_up(
     Json(payload): Json<SignUpRequest>,
 ) -> Result<Json<AuthResponse>, AppError> {
     // Validate email and password using value objects
-    let email = crate::domain::Email::new(&payload.email)
-        .map_err(|e| AppError::ValidationError(e))?;
+    let email = crate::domain::Email::new(&payload.email).map_err(AppError::ValidationError)?;
 
-    let password = crate::domain::Password::new(&payload.password)
-        .map_err(|e| AppError::ValidationError(e))?;
+    let password =
+        crate::domain::Password::new(&payload.password).map_err(AppError::ValidationError)?;
 
     // Check if user already exists
-    let existing = sqlx::query_as::<_, (Uuid,)>(
-        "SELECT id FROM users WHERE email = $1"
-    )
-    .bind(email.as_str())
-    .fetch_optional(&state.pool)
-    .await?;
+    let existing = sqlx::query_as::<_, (Uuid,)>("SELECT id FROM users WHERE email = $1")
+        .bind(email.as_str())
+        .fetch_optional(&state.pool)
+        .await?;
 
     if existing.is_some() {
         return Err(AppError::ValidationError(
@@ -57,7 +56,9 @@ pub async fn sign_up(
     .await?;
 
     // Generate tokens
-    let access_token = state.jwt_service.generate_access_token(user_id, email.as_str())?;
+    let access_token = state
+        .jwt_service
+        .generate_access_token(user_id, email.as_str())?;
     let refresh_token = state.jwt_service.generate_refresh_token(user_id)?;
 
     // Hash and store refresh token
@@ -86,16 +87,14 @@ pub async fn sign_in(
     State(state): State<Arc<AuthState>>,
     Json(payload): Json<SignInRequest>,
 ) -> Result<Json<AuthResponse>, AppError> {
-    let email = crate::domain::Email::new(&payload.email)
-        .map_err(|e| AppError::ValidationError(e))?;
+    let email = crate::domain::Email::new(&payload.email).map_err(AppError::ValidationError)?;
 
     // Look up user
-    let user_record = sqlx::query_as::<_, (Uuid, String)>(
-        "SELECT id, password_hash FROM users WHERE email = $1"
-    )
-    .bind(email.as_str())
-    .fetch_optional(&state.pool)
-    .await?;
+    let user_record =
+        sqlx::query_as::<_, (Uuid, String)>("SELECT id, password_hash FROM users WHERE email = $1")
+            .bind(email.as_str())
+            .fetch_optional(&state.pool)
+            .await?;
 
     let (user_id, password_hash) = user_record
         .ok_or_else(|| AppError::AuthenticationError("Invalid email or password".to_string()))?;
@@ -110,7 +109,9 @@ pub async fn sign_in(
     }
 
     // Generate tokens
-    let access_token = state.jwt_service.generate_access_token(user_id, email.as_str())?;
+    let access_token = state
+        .jwt_service
+        .generate_access_token(user_id, email.as_str())?;
     let refresh_token = state.jwt_service.generate_refresh_token(user_id)?;
 
     // Hash and store refresh token
@@ -181,7 +182,9 @@ pub async fn refresh(
         .0;
 
     // Generate new tokens
-    let new_access_token = state.jwt_service.generate_access_token(user_id, &user_email)?;
+    let new_access_token = state
+        .jwt_service
+        .generate_access_token(user_id, &user_email)?;
     let new_refresh_token = state.jwt_service.generate_refresh_token(user_id)?;
 
     // Store new refresh token
