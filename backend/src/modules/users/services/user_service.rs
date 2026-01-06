@@ -36,4 +36,8 @@ impl UserService {
     pub async fn get_user_by_email(&self, email: &str) -> AppResult<Option<User>> {
         self.pool.get_user_by_email(email).await
     }
+
+    pub async fn get_user_by_id(&self, id: &str) -> AppResult<Option<User>> {
+        self.pool.get_user_by_id(id).await
+    }
 }

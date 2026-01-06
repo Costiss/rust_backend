@@ -1,9 +1,7 @@
-use crate::features::auth::models::{
-    AuthResponse, RefreshTokenRequest, SignInRequest, SignUpRequest,
-};
-use crate::features::auth::services::{JwtService, PasswordService};
-use crate::modules::auth::services::jwt_service;
-use crate::shared::app_state::{self, AppState};
+use crate::modules::auth::dto::{AuthResponse, RefreshTokenRequest, SignInRequest, SignUpRequest};
+use crate::modules::auth::services::jwt_service::JwtService;
+use crate::modules::auth::services::password_service::PasswordService;
+use crate::shared::app_state::AppState;
 use crate::shared::AppError;
 use axum::{extract::State, Json};
 use axum::{routing::post, Router};
@@ -48,7 +46,7 @@ pub async fn sign_up(
         .user_service
         .create_user(email.as_str(), password_hash.as_str())
         .await?;
-    let user_id = created.id_str();
+    let user_id = created.id_string();
 
     // Generate tokens
     let access_token = app
@@ -70,23 +68,20 @@ pub async fn sign_up(
 
 /// Sign in handler - authenticates user and returns tokens
 pub async fn sign_in(
-    State(state): State<Arc<AppState>>,
+    State(app): State<Arc<AppState>>,
     Json(payload): Json<SignInRequest>,
 ) -> Result<Json<AuthResponse>, AppError> {
-    let email = crate::domain::Email::new(&payload.email).map_err(AppError::ValidationError)?;
+    let email = crate::shared::objects::email::Email::new(&payload.email)
+        .map_err(AppError::ValidationError)?;
 
-    // Look up user
-    let user_record =
-        sqlx::query_as::<_, (Uuid, String)>("SELECT id, password_hash FROM users WHERE email = $1")
-            .bind(email.as_str())
-            .fetch_optional(&state.pool)
-            .await?;
-
-    let (user_id, password_hash) = user_record
+    let user = app
+        .user_service
+        .get_user_by_email(email.as_str())
+        .await?
         .ok_or_else(|| AppError::AuthenticationError("Invalid email or password".to_string()))?;
 
     // Verify password
-    let password_valid = PasswordService::verify_password(&payload.password, &password_hash)?;
+    let password_valid = PasswordService::verify_password(&payload.password, user.password_hash())?;
 
     if !password_valid {
         return Err(AppError::AuthenticationError(
@@ -94,11 +89,13 @@ pub async fn sign_in(
         ));
     }
 
+    let user_id = user.id_string();
+
     // Generate tokens
-    let access_token = state
+    let access_token = app
         .jwt_service
-        .generate_access_token(user_id, email.as_str())?;
-    let refresh_token = state.jwt_service.generate_refresh_token(user_id)?;
+        .generate_access_token(&user_id, email.as_str())?;
+    let refresh_token = app.jwt_service.generate_refresh_token(&user_id)?;
 
     // Hash and store refresh token
     let refresh_token_hash = PasswordService::hash_password(&refresh_token)?;
@@ -110,14 +107,14 @@ pub async fn sign_in(
     .bind(refresh_token_hash)
     .bind(chrono::Utc::now() + chrono::Duration::days(7))
     .bind(chrono::Utc::now())
-    .execute(&state.pool)
+    .execute(&app.pool)
     .await?;
 
     Ok(Json(AuthResponse {
         access_token,
         refresh_token,
         token_type: "Bearer".to_string(),
-        expires_in: state.jwt_service.get_expiry_hours() * 3600,
+        expires_in: app.jwt_service.get_expiry_hours() * 3600,
     }))
 }
 
@@ -135,18 +132,17 @@ pub async fn refresh(
         ));
     }
 
-    // Verify refresh token hasn't been revoked
-    let user_id = Uuid::parse_str(&claims.sub)
-        .map_err(|_| AppError::JwtError("Invalid user ID in token".to_string()))?;
+    // // Verify refresh token hasn't been revoked
+    // let user_id = Uuid::parse_str(&claims.sub)
+    //     .map_err(|_| AppError::JwtError("Invalid user ID in token".to_string()))?;
 
-    let token_record = sqlx::query_as::<_, (String,)>(
-        "SELECT token_hash FROM refresh_tokens WHERE user_id = $1 AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1"
-    )
-    .bind(user_id)
-    .fetch_optional(&state.pool)
-    .await?;
+    let user_id = &claims.sub;
+    let token_hash = state
+        .jwt_service
+        .get_latest_refresh_token_by_user_id(user_id)
+        .await?;
 
-    let stored_hash = token_record
+    let stored_hash = token_hash
         .ok_or_else(|| AppError::AuthenticationError("Invalid refresh token".to_string()))?
         .0;
 
@@ -159,13 +155,12 @@ pub async fn refresh(
         ));
     }
 
-    // Look up user email
-    let user_email = sqlx::query_as::<_, (String,)>("SELECT email FROM users WHERE id = $1")
-        .bind(user_id)
-        .fetch_optional(&state.pool)
-        .await?
+    let user = state.user_service.get_user_by_id(user_id).await?;
+    let user_email = user
         .ok_or_else(|| AppError::NotFound("User not found".to_string()))?
-        .0;
+        .email()
+        .as_str()
+        .to_string();
 
     // Generate new tokens
     let new_access_token = state
@@ -173,18 +168,10 @@ pub async fn refresh(
         .generate_access_token(user_id, &user_email)?;
     let new_refresh_token = state.jwt_service.generate_refresh_token(user_id)?;
 
-    // Store new refresh token
-    let new_refresh_token_hash = PasswordService::hash_password(&new_refresh_token)?;
-    sqlx::query(
-        "INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, created_at) VALUES ($1, $2, $3, $4, $5)"
-    )
-    .bind(Uuid::new_v4())
-    .bind(user_id)
-    .bind(new_refresh_token_hash)
-    .bind(chrono::Utc::now() + chrono::Duration::days(7))
-    .bind(chrono::Utc::now())
-    .execute(&state.pool)
-    .await?;
+    state
+        .jwt_service
+        .save_refresh_token(user_id, &new_refresh_token)
+        .await?;
 
     Ok(Json(AuthResponse {
         access_token: new_access_token,

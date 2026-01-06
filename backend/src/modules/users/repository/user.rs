@@ -17,6 +17,8 @@ pub trait UserRepository: Send + Sync {
     ) -> AppResult<()>;
 
     async fn get_user_by_email(&self, email: &str) -> AppResult<Option<User>>;
+
+    async fn get_user_by_id(&self, id: &str) -> AppResult<Option<User>>;
 }
 
 #[async_trait::async_trait]
@@ -48,6 +50,36 @@ impl UserRepository for Database {
             "SELECT id, email, password_hash, created_at, updated_at FROM users WHERE email = $1",
         )
         .bind(email)
+        .fetch_optional(self)
+        .await?;
+
+        if let Some(row) = row {
+            let id_str: String = row.get("id");
+            let id = Ulid::from_string(&id_str).unwrap();
+            let email_str: String = row.get("email");
+            let password_hash: String = row.get("password_hash");
+            let created_at = row.get("created_at");
+            let updated_at = row.get("updated_at");
+
+            let email_obj = Email::new(&email_str).unwrap();
+
+            Ok(Some(User::with_id(
+                id,
+                email_obj,
+                password_hash,
+                created_at,
+                updated_at,
+            )))
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn get_user_by_id(&self, id: &str) -> AppResult<Option<User>> {
+        let row = sqlx::query(
+            "SELECT id, email, password_hash, created_at, updated_at FROM users WHERE id = $1",
+        )
+        .bind(id)
         .fetch_optional(self)
         .await?;
 

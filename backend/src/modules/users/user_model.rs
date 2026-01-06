@@ -45,7 +45,7 @@ impl User {
         &self.id
     }
 
-    pub fn id_str(&self) -> String {
+    pub fn id_string(&self) -> String {
         self.id.to_string()
     }
 

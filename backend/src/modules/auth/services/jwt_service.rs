@@ -98,6 +98,13 @@ impl JwtService {
             .save_refresh_token(&id, user_id, &token_hash, expires_at)
             .await
     }
+
+    pub async fn get_latest_refresh_token_by_user_id(
+        &self,
+        user_id: &String,
+    ) -> AppResult<Option<(String,)>> {
+        self.pool.get_latest_refresh_token_by_user_id(user_id).await
+    }
 }
 
 #[cfg(test)]
