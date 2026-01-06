@@ -45,3 +45,7 @@ ulid = "1.2.1"
 # OpenAPI & Documentation
 utoipa = "4.2"
 utoipa-swagger-ui = { version = "6", features = ["axum"] }
+
+[[bin]]
+name = "generate-openapi"
+path = "scripts/generate_openapi.rs"

@@ -1,0 +1,251 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Prontua API",
+    "description": "Authentication and user management API for Prontua",
+    "license": {
+      "name": ""
+    },
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:3000",
+      "description": "Local loopback server"
+    }
+  ],
+  "paths": {
+    "/api/auth/refresh": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Exchange refresh token for new access token",
+        "description": "Use the refresh token obtained from sign-up or sign-in to get a new access token\nwithout re-entering credentials. Returns a new pair of tokens.",
+        "operationId": "refresh",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Token refresh successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired refresh token"
+          },
+          "404": {
+            "description": "User not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/auth/sign-in": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Authenticate user with email and password",
+        "description": "Sign in with existing credentials to obtain JWT tokens.\nReturns the same token structure as sign-up.",
+        "operationId": "sign_in",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid email format"
+          },
+          "401": {
+            "description": "Invalid email or password"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/auth/sign-up": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Create a new user account",
+        "description": "Register a new user with an email and password. The password must meet minimum requirements:\n- Minimum 8 characters, maximum 128 characters\n- At least one uppercase letter\n- At least one lowercase letter\n- At least one digit\n\nReturns JWT tokens for immediate authentication.",
+        "operationId": "sign_up",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignUpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "User created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid email format or weak password"
+          },
+          "409": {
+            "description": "User with this email already exists"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AuthResponse": {
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token",
+          "token_type",
+          "expires_in"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "JWT access token for API requests",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "expires_in": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Token expiration time in seconds",
+            "example": 86400
+          },
+          "refresh_token": {
+            "type": "string",
+            "description": "Refresh token for obtaining new access tokens",
+            "example": "dGhpc2lzYXJlZnJlc2h0b2tlbmV4YW1wbGU..."
+          },
+          "token_type": {
+            "type": "string",
+            "description": "Token type (always \"Bearer\")",
+            "example": "Bearer"
+          }
+        }
+      },
+      "RefreshTokenRequest": {
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "description": "Refresh token obtained from sign-up or sign-in",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          }
+        }
+      },
+      "SignInRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User email address",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "User password",
+            "example": "SecurePassword123"
+          }
+        },
+        "example": {
+          "email": "user@example.com",
+          "password": "SecurePassword123"
+        }
+      },
+      "SignUpRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User email address",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "Password (min 8 chars, must contain uppercase, lowercase, and number)",
+            "example": "SecurePassword123"
+          }
+        },
+        "example": {
+          "email": "user@example.com",
+          "password": "SecurePassword123"
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearer_auth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT token obtained from sign-up or sign-in"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "User authentication endpoints"
+    }
+  ]
+}
