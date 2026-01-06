@@ -40,7 +40,7 @@ pub async fn sign_up(
     }
 
     // Hash password
-    let password_hash = PasswordService::hash_password(password.as_str())?;
+    let password_hash = PasswordService::hash_password(password.as_str()).await?;
     let created = app
         .user_service
         .create_user(email.as_str(), password_hash.as_str())
@@ -81,7 +81,7 @@ pub async fn sign_in(
 
     // Verify password
     let hash = user.password_hash().to_string();
-    let password_valid = PasswordService::verify_password(&payload.password, &hash)?;
+    let password_valid = PasswordService::verify_password(&payload.password, &hash).await?;
 
     if !password_valid {
         return Err(AppError::AuthenticationError(

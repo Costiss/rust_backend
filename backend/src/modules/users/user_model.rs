@@ -1,4 +1,4 @@
-use crate::shared::{kernel::traits::HasId, objects::email::Email, AppError};
+use crate::shared::{kernel::traits::HasId, objects::email::Email};
 use chrono::{DateTime, Utc};
 use ulid::Ulid;
 
@@ -63,14 +63,6 @@ impl User {
 
     pub fn updated_at(&self) -> DateTime<Utc> {
         self.updated_at
-    }
-
-    /// Verify that a plain text password matches the stored hash
-    pub fn verify_password(&self, plain_password: &str) -> Result<bool, AppError> {
-        crate::modules::auth::services::password_service::PasswordService::verify_password(
-            plain_password,
-            &self.password_hash,
-        )
     }
 
     /// Update the password hash (called after rehashing)
