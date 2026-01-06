@@ -1,5 +1,4 @@
-use crate::domain::value_objects::Email;
-use crate::shared::kernel::traits::HasId;
+use crate::shared::{kernel::traits::HasId, objects::email::Email};
 use chrono::{DateTime, Utc};
 use ulid::Ulid;
 
