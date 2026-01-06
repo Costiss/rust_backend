@@ -16,6 +16,11 @@ pub trait RefreshTokenRepository: Send + Sync {
         &self,
         user_id: &str,
     ) -> AppResult<Option<(String,)>>;
+
+    async fn get_user_id_from_refresh_token(
+        &self,
+        token_hash: &str,
+    ) -> AppResult<Option<(String, String)>>;
 }
 
 /// Default implementation using the database pool
@@ -51,6 +56,18 @@ impl RefreshTokenRepository for Database {
             "SELECT token_hash FROM refresh_tokens WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1",
         )
         .bind(user_id)
+        .fetch_optional(self)
+        .await?)
+    }
+
+    async fn get_user_id_from_refresh_token(
+        &self,
+        token_hash: &str,
+    ) -> AppResult<Option<(String, String)>> {
+        Ok(sqlx::query_as::<_, (String, String)>(
+            "SELECT user_id, token_hash FROM refresh_tokens WHERE token_hash = $1 AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1",
+        )
+        .bind(token_hash)
         .fetch_optional(self)
         .await?)
     }

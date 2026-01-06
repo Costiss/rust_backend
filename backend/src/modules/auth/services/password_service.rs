@@ -1,16 +1,33 @@
 use crate::shared::AppError;
+use argon2::{password_hash::SaltString, Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use rand_core::OsRng;
 
 pub struct PasswordService;
 
 impl PasswordService {
-    /// Hash a plain text password
+    /// Hash a plain text password using Argon2
     pub fn hash_password(password: &str) -> Result<String, AppError> {
-        bcrypt::hash(password, 12).map_err(|e| AppError::InternalError(e.to_string()))
+        let salt = SaltString::generate(OsRng);
+        let argon2 = Argon2::default();
+
+        argon2
+            .hash_password(password.as_bytes(), &salt)
+            .map(|hash| hash.to_string())
+            .map_err(|e| AppError::InternalError(e.to_string()))
     }
 
-    /// Verify a plain text password against a hash
+    /// Verify a plain text password against an Argon2 hash
     pub fn verify_password(plain: &str, hash: &str) -> Result<bool, AppError> {
-        bcrypt::verify(plain, hash).map_err(|e| AppError::InternalError(e.to_string()))
+        let parsed_hash =
+            PasswordHash::new(hash).map_err(|e| AppError::InternalError(e.to_string()))?;
+
+        let argon2 = Argon2::default();
+
+        match argon2.verify_password(plain.as_bytes(), &parsed_hash) {
+            Ok(()) => Ok(true),
+            Err(argon2::password_hash::Error::Password) => Ok(false),
+            Err(e) => Err(AppError::InternalError(e.to_string())),
+        }
     }
 }
 

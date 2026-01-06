@@ -1,4 +1,4 @@
-use crate::shared::{kernel::traits::HasId, objects::email::Email};
+use crate::shared::{kernel::traits::HasId, objects::email::Email, AppError};
 use chrono::{DateTime, Utc};
 use ulid::Ulid;
 
@@ -66,8 +66,11 @@ impl User {
     }
 
     /// Verify that a plain text password matches the stored hash
-    pub fn verify_password(&self, plain_password: &str) -> Result<bool, bcrypt::BcryptError> {
-        bcrypt::verify(plain_password, &self.password_hash)
+    pub fn verify_password(&self, plain_password: &str) -> Result<bool, AppError> {
+        crate::modules::auth::services::password_service::PasswordService::verify_password(
+            plain_password,
+            &self.password_hash,
+        )
     }
 
     /// Update the password hash (called after rehashing)
@@ -117,6 +120,6 @@ mod tests {
     fn test_user_has_id() {
         let email = Email::new("test@example.com").unwrap();
         let user = User::new(email, "hashed_password".to_string());
-        assert_eq!(user.id(), user.id);
+        assert_eq!(user.id(), user.id());
     }
 }
