@@ -45,10 +45,23 @@ src/
 ### Prerequisites
 
 - **Rust**: 1.70+ (install from [rustup.rs](https://rustup.rs/))
-- **PostgreSQL**: 12+ running locally or accessible via network
 - **Git**: For version control
+- **SQLx CLI**: For running database migrations (see installation below)
+- **Docker & Docker Compose**: For running PostgreSQL and Valkey in development (optional but recommended)
 
 ### Installation
+
+#### Step 1: Install SQLx CLI
+
+SQLx CLI is required to run database migrations. Install it with:
+
+```bash
+cargo install sqlx-cli --no-default-features --features postgres
+```
+
+This installs the SQLx command-line tool with PostgreSQL support only (without requiring Docker or other databases).
+
+#### Step 2: Clone and Setup
 
 1. **Clone the repository** (if applicable):
 
@@ -70,36 +83,97 @@ src/
    SERVER_HOST=127.0.0.1
    SERVER_PORT=3000
 
-   # Database Configuration
-   DATABASE_URL=postgres://postgres:postgres@localhost:5432/prontua
+   # Database Configuration (when using docker-compose)
+   DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres
 
    # JWT Configuration
    JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
    JWT_EXPIRY_HOURS=24
    ```
 
-4. **Setup PostgreSQL database**:
+#### Step 3: Setup Database and Run Migrations
+
+The project includes a `docker-compose.yml` file to run PostgreSQL and Valkey (Redis) services for development:
+
+1. **Start services with Docker Compose**:
 
    ```bash
-   # Create the database
-   createdb prontua
+   docker-compose up -d
    ```
 
-5. **Run migrations**:
+   This starts:
+   - PostgreSQL on `localhost:5432` (credentials: `postgres:postgres`)
+   - Valkey (Redis) on `localhost:6379`
+
+2. **Run all pending migrations**:
 
    ```bash
-   sqlx database create
    sqlx migrate run
    ```
 
-6. **Build and run**:
+   This will execute all migration files in the `migrations/` directory in order, creating the necessary tables and schemas.
 
-   ```bash
-   cargo build
-   cargo run
-   ```
+#### Step 4: Build and Run
 
-   The server will start on `http://127.0.0.1:3000`
+```bash
+cargo build
+cargo run
+```
+
+The server will start on `http://127.0.0.1:3000`
+
+### Docker Compose for Development
+
+The `docker-compose.yml` file provides auxiliary services for local development:
+
+```yaml
+services:
+  valkey:      # Redis-compatible cache (port 6379)
+  postgres:    # PostgreSQL database (port 5432)
+```
+
+**Using Docker Compose:**
+
+- **Start services**: `docker-compose up -d`
+- **View logs**: `docker-compose logs -f postgres` or `docker-compose logs -f valkey`
+- **Stop services**: `docker-compose down`
+- **Remove volumes** (reset database): `docker-compose down -v`
+
+**Environment Variables** for docker-compose services:
+- PostgreSQL: `postgres://postgres:postgres@localhost:5432/postgres`
+- Valkey: `redis://localhost:6379`
+
+Update your `.env` file to match these connection strings when using docker-compose.
+
+### Database Migrations
+
+Migrations are SQL scripts located in the `migrations/` directory. Each migration is prefixed with a version number (e.g., `001_`, `002_`) and contains DDL statements.
+
+#### Running Migrations
+
+To run migrations:
+
+```bash
+sqlx migrate run
+```
+
+#### Creating a New Migration
+
+To create a new migration file:
+
+```bash
+sqlx migrate add <migration_name>
+```
+
+This creates a timestamped migration file in the `migrations/` directory that you can edit.
+
+#### Reverting Migrations
+
+SQLx doesn't support automatic rollbacks. To revert changes:
+
+1. Edit the migration file to add `DROP TABLE` or other revert logic
+2. Create a new migration with the revert changes
+3. Run `sqlx migrate run` again
 
 ## Configuration
 
