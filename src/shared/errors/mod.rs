@@ -1,6 +1,5 @@
 /// Shared error types for the entire application
 /// Following the Result pattern for functional error handling
-
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},

@@ -2,6 +2,8 @@
 use sqlx::postgres::{PgConnectOptions, PgPool, PgPoolOptions};
 use std::str::FromStr;
 
+pub type Database = sqlx::PgPool;
+
 #[derive(Debug, Clone)]
 pub struct DatabaseConfig {
     pub url: String,

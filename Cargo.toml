@@ -20,6 +20,7 @@ serde_json = "1.0"
 # Authentication & Security
 jsonwebtoken = "9.2"
 bcrypt = "0.15"
+async-trait = "0.1"
 
 # Error handling
 anyhow = "1.0"
@@ -35,3 +36,4 @@ tracing-subscriber = "0.3"
 # Environment variables
 envy = "0.4"
 regex = "1.12"
+ulid = "1.2.1"

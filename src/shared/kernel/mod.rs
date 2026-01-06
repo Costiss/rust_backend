@@ -1,5 +1,3 @@
-/// Core kernel types and traits for the application
-
 pub mod result {
     use super::super::errors::AppError;
 
@@ -43,8 +41,9 @@ mod tests {
 
     #[test]
     fn test_result_ext() {
-        let err: result::AppResult<i32> =
-            Err(crate::shared::errors::AppError::InternalError("test".to_string()));
+        let err: result::AppResult<i32> = Err(crate::shared::errors::AppError::InternalError(
+            "test".to_string(),
+        ));
         let result = err.context("Additional context");
         assert!(result.is_err());
     }

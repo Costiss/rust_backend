@@ -3,14 +3,13 @@ use crate::shared::AppError;
 use chrono::Utc;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenClaims {
-    pub sub: String,  // subject (user_id)
+    pub sub: String, // subject (user_id)
     pub email: String,
-    pub iat: i64,     // issued at
-    pub exp: i64,     // expiration
+    pub iat: i64, // issued at
+    pub exp: i64, // expiration
     pub token_type: String,
 }
 
@@ -29,7 +28,7 @@ impl JwtService {
     }
 
     /// Generate a new access token
-    pub fn generate_access_token(&self, user_id: Uuid, email: &str) -> Result<String, AppError> {
+    pub fn generate_access_token(&self, user_id: &str, email: &str) -> Result<String, AppError> {
         let now = Utc::now().timestamp();
         let exp = now + (self.expiry_hours * 3600);
 
@@ -46,7 +45,7 @@ impl JwtService {
     }
 
     /// Generate a refresh token (longer expiry)
-    pub fn generate_refresh_token(&self, user_id: Uuid) -> Result<String, AppError> {
+    pub fn generate_refresh_token(&self, user_id: &str) -> Result<String, AppError> {
         let now = Utc::now().timestamp();
         let exp = now + (7 * 24 * 3600); // 7 days
 
