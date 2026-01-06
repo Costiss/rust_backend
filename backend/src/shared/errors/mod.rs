@@ -114,6 +114,12 @@ impl From<jsonwebtoken::errors::Error> for AppError {
     }
 }
 
+impl From<super::CacheError> for AppError {
+    fn from(err: super::CacheError) -> Self {
+        AppError::InternalError(err.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
