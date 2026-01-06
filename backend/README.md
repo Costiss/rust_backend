@@ -1,314 +1,189 @@
 # Prontua Backend
 
-A production-ready Rust backend using **domain-centric modular monolith architecture** (vertical slice pattern) with PostgreSQL, JWT authentication, and type-safe SQL with SQLx.
+A domain-centric modular monolith backend built with Rust, featuring user authentication, JWT-based authorization, and PostgreSQL persistence.
 
-## Architecture
+## Overview
 
-This project follows a **vertical slice / domain-centric architecture** inspired by Milan Jovanović's approach. Each domain feature is organized as a vertical slice containing its own handlers, services, and models.
+Prontua Backend is a modern REST API built with **Axum** (async Rust web framework) and **Tokio** runtime. It implements a clean architecture with domain-driven design principles, focusing on modularity and maintainability.
 
-### Key Principles
+## Tech Stack
 
-1. **Vertical Slices**: Features are organized by domain, not by technical layers
-2. **Domain-First**: Business logic lives in domain entities and value objects
-3. **Decoupled Features**: Auth and User are separate but share domain models
-4. **Type Safety**: Extensive use of value objects for domain concepts
+- **Framework**: Axum 0.7 with Tokio runtime
+- **Database**: PostgreSQL with SQLx for type-safe queries
+- **Authentication**: JWT (jsonwebtoken) with bcrypt password hashing
+- **Serialization**: Serde for JSON handling
+- **Logging**: Tracing and tracing-subscriber for structured logging
+- **Language**: Rust
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed architecture decisions and trade-offs.
-
-### Directory Structure
+## Project Structure
 
 ```
 src/
-├── domain/               # Shared domain layer (entities, value objects)
-│   ├── entities/         # User, etc.
-│   └── value_objects/    # Email, Password, etc.
-├── features/             # Vertical slices (features)
-│   └── auth/             # Authentication feature
-│       ├── handlers/      # HTTP handlers
-│       ├── services/      # Auth-specific services
-│       └── models/        # Request/response DTOs
-├── infrastructure/       # Technical infrastructure
-│   ├── database/         # PostgreSQL connection
-│   └── config/           # Configuration
-└── shared/               # Cross-cutting concerns
-    ├── errors/           # Error handling
-    └── kernel/           # Core types and traits
+├── main.rs                 # Application entry point
+├── lib.rs                  # Library root with module exports
+├── infrastructure/         # Infrastructure layer (database, config, external services)
+│   ├── config/            # Configuration management
+│   └── database/          # Database connection and setup
+├── modules/               # Domain modules (features)
+│   ├── auth/              # Authentication & authorization
+│   │   ├── services/      # Business logic
+│   │   └── repository/    # Data access
+│   └── users/             # User management
+│       ├── objects/       # Value objects (Email, Password)
+│       ├── services/      # User business logic
+│       ├── repository/    # User data access
+│       └── user_model.rs  # User domain model
+└── shared/                # Shared utilities and common code
+    ├── app_state.rs       # Global application state
+    ├── errors/            # Error handling
+    ├── objects/           # Shared value objects
+    └── kernel/            # Core utilities
 ```
 
-## Features
+## Getting Started
 
-- **Authentication System**
-  - Sign-up with email validation and password strength requirements
-  - Sign-in with password verification
-  - JWT access tokens with automatic refresh
-  - Refresh token rotation for security
+### Prerequisites
 
-- **Domain-Driven Design**
-  - Email value object with validation
-  - Password value object with strength validation
-  - User entity with business logic
-  - Result type for ergonomic error handling
+- **Rust**: 1.70+ (install from [rustup.rs](https://rustup.rs/))
+- **PostgreSQL**: 12+ running locally or accessible via network
+- **Git**: For version control
 
-- **Database**
-  - PostgreSQL with SQLx (compile-time checked SQL)
-  - Migrations system
-  - Connection pooling
-  - Indexes for performance
+### Installation
 
-- **Security**
-  - Bcrypt password hashing
-  - JWT token generation and validation
-  - Refresh token management with hashing
-  - Input validation at domain level
+1. **Clone the repository** (if applicable):
 
-- **Production Ready**
-  - Structured logging with tracing
-  - Comprehensive error handling
-  - Environment-based configuration
-  - Type safety throughout
+   ```bash
+   git clone <repository-url>
+   cd prontua/backend
+   ```
 
-## Prerequisites
+2. **Setup environment variables**:
 
-- Rust 1.70+
-- PostgreSQL 12+
-- SQLx CLI (for migrations): `cargo install sqlx-cli`
+   ```bash
+   cp .env.example .env
+   ```
 
-## Quick Start
+3. **Update `.env` with your configuration**:
 
-### 1. Clone and Setup
+   ```env
+   # Server Configuration
+   SERVER_HOST=127.0.0.1
+   SERVER_PORT=3000
 
-```bash
-# Copy environment template
-cp .env.example .env
+   # Database Configuration
+   DATABASE_URL=postgres://postgres:postgres@localhost:5432/prontua
 
-# Edit .env with your database credentials
-# Default: postgres://postgres:postgres@localhost:5432/prontua
-```
+   # JWT Configuration
+   JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+   JWT_EXPIRY_HOURS=24
+   ```
 
-### 2. Create Database
+4. **Setup PostgreSQL database**:
 
-```bash
-# Using PostgreSQL CLI
-psql -U postgres -c "CREATE DATABASE prontua;"
+   ```bash
+   # Create the database
+   createdb prontua
+   ```
 
-# Or using your PostgreSQL client
-```
+5. **Run migrations**:
 
-### 3. Run Migrations
+   ```bash
+   sqlx database create
+   sqlx migrate run
+   ```
 
-```bash
-# Using sqlx CLI
-sqlx migrate run
+6. **Build and run**:
 
-# Or manually using psql
-psql -U postgres -d prontua -f migrations/001_create_users_table.sql
-psql -U postgres -d prontua -f migrations/002_create_refresh_tokens_table.sql
-```
+   ```bash
+   cargo build
+   cargo run
+   ```
 
-### 4. Run Server
-
-```bash
-cargo run
-```
-
-The server will start on `http://127.0.0.1:3000`
-
-## API Endpoints
-
-### Authentication
-
-#### Sign Up
-```bash
-POST /api/auth/sign-up
-
-{
-  "email": "user@example.com",
-  "password": "SecurePass123"
-}
-
-Response:
-{
-  "access_token": "eyJ0eXAiOiJKV1QiLC...",
-  "refresh_token": "eyJ0eXAiOiJKV1QiLC...",
-  "token_type": "Bearer",
-  "expires_in": 86400
-}
-```
-
-#### Sign In
-```bash
-POST /api/auth/sign-in
-
-{
-  "email": "user@example.com",
-  "password": "SecurePass123"
-}
-
-Response:
-{
-  "access_token": "eyJ0eXAiOiJKV1QiLC...",
-  "refresh_token": "eyJ0eXAiOiJKV1QiLC...",
-  "token_type": "Bearer",
-  "expires_in": 86400
-}
-```
-
-#### Refresh Token
-```bash
-POST /api/auth/refresh
-
-{
-  "refresh_token": "eyJ0eXAiOiJKV1QiLC..."
-}
-
-Response:
-{
-  "access_token": "eyJ0eXAiOiJKV1QiLC...",
-  "refresh_token": "eyJ0eXAiOiJKV1QiLC...",
-  "token_type": "Bearer",
-  "expires_in": 86400
-}
-```
-
-## Password Requirements
-
-Passwords must meet the following criteria:
-- Minimum 8 characters
-- Maximum 128 characters
-- At least one uppercase letter
-- At least one lowercase letter
-- At least one digit
-
-## Email Validation
-
-Emails are validated using RFC 5322 compliant regex. Valid email formats include:
-- `user@example.com`
-- `user.name@example.co.uk`
-- `user+tag@example.com`
+   The server will start on `http://127.0.0.1:3000`
 
 ## Configuration
 
-Configure via environment variables (see `.env.example`):
+### Environment Variables
 
-```env
-# Server
-SERVER_HOST=127.0.0.1
-SERVER_PORT=3000
-
-# Database
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/prontua
-
-# JWT
-JWT_SECRET=your-super-secret-key-min-32-chars-recommended
-JWT_EXPIRY_HOURS=24
-```
-
-## Testing
-
-```bash
-# Run all tests
-cargo test
-
-# Run tests with output
-cargo test -- --nocapture
-
-# Run specific test
-cargo test test_valid_email
-```
+| Variable           | Description                        | Default                                               |
+| ------------------ | ---------------------------------- | ----------------------------------------------------- |
+| `SERVER_HOST`      | Server binding address             | `127.0.0.1`                                           |
+| `SERVER_PORT`      | Server port                        | `3000`                                                |
+| `DATABASE_URL`     | PostgreSQL connection string       | `postgres://postgres:postgres@localhost:5432/prontua` |
+| `JWT_SECRET`       | Secret key for JWT signing         | `your-super-secret-jwt-key`                           |
+| `JWT_EXPIRY_HOURS` | JWT token expiration time in hours | `24`                                                  |
 
 ## Development
 
-### Building
+### Running Tests
 
 ```bash
-# Debug build
-cargo build
+cargo test
+```
 
-# Release build
+### Building for Production
+
+```bash
 cargo build --release
 ```
 
-### Code Quality
+### Code Organization Best Practices
+
+This project follows domain-driven design:
+
+- **Modules**: Self-contained feature domains (auth, users, etc.)
+- **Services**: Business logic and orchestration
+- **Repositories**: Data access abstraction
+- **Objects**: Value objects with validation (Email, Password)
+- **Infrastructure**: External concerns (DB, config)
+- **Shared**: Cross-cutting utilities and common types
+
+### Adding a New Feature
+
+1. Create a new module in `src/modules/feature_name/`
+2. Structure it with: `services/`, `repository/`, `objects/`, and `mod.rs`
+3. Implement repository traits for database access
+4. Add business logic in services
+5. Create handlers and register routes in `main.rs`
+
+## Error Handling
+
+Errors are handled through a custom `AppError` type defined in `src/shared/errors/`:
+
+- Provides consistent error responses
+- Maps domain errors to HTTP status codes
+- Supports error context and messages
+
+## Logging
+
+The application uses `tracing` for structured logging:
 
 ```bash
-# Format code
-cargo fmt
-
-# Lint
-cargo clippy
-
-# Check types
-cargo check
-```
-
-## Project Conventions
-
-### Naming
-
-- **Domain models** (entities, value objects): PascalCase
-- **Functions/methods**: snake_case
-- **Constants**: SCREAMING_SNAKE_CASE
-- **Modules**: snake_case
-
-### Error Handling
-
-All fallible operations return `AppResult<T>` which is `Result<T, AppError>`. The `AppError` type handles conversion to HTTP responses automatically.
-
-```rust
-use prontua_backend::AppResult;
-
-pub async fn my_handler() -> AppResult<Json<Response>> {
-    // Your code here
-    // Errors are automatically converted to HTTP responses
-}
-```
-
-### Adding New Features
-
-1. Create a new feature module in `src/features/[feature_name]/`
-2. Structure as: `handlers/`, `services/`, `models/`
-3. Share domain models, not implementations
-4. Keep handlers thin - logic goes in services
-
-Example:
-```
-src/features/users/
-├── handlers/mod.rs      # HTTP handlers
-├── services/mod.rs      # Business logic
-└── models/mod.rs        # Request/response DTOs
+# Default level: DEBUG
+# Set via environment variable:
+RUST_LOG=info cargo run
 ```
 
 ## Security Considerations
 
-- **Passwords**: Always hashed with bcrypt (cost factor 12)
-- **Tokens**: JWT with HS256 algorithm
-- **Refresh tokens**: Hashed in database and rotated on use
-- **Input validation**: All inputs validated at domain level
-- **SQL injection**: Type-safe SQL with SQLx
+- **Passwords**: Hashed with bcrypt before storage
+- **Tokens**: JWT signed with secret key (change in production!)
+- **Database**: Use environment-based connection strings
+- **CORS**: Tower middleware for cross-origin handling
+- **Input Validation**: Value objects enforce constraints
+
+⚠️ **Production Checklist**:
+
+- [ ] Change `JWT_SECRET` to a strong random value
+- [ ] Use HTTPS for all endpoints
+- [ ] Set appropriate CORS policies
+- [ ] Configure database connection pooling
+- [ ] Enable rate limiting
+- [ ] Setup comprehensive logging and monitoring
+- [ ] Use environment-specific configurations
 
 ## Performance
 
-- Connection pooling with configurable max connections
-- Database indexes on frequently queried columns
-- Lazy validation (only when needed)
-- Efficient JWT validation
-
-## Next Steps
-
-- [ ] Add API documentation (OpenAPI/Swagger)
-- [ ] Implement user profile feature
-- [ ] Add email verification
-- [ ] Implement password reset flow
-- [ ] Add rate limiting
-- [ ] Set up Docker and CI/CD
-
-## License
-
-MIT
-
-## References
-
-- [Vertical Slice Architecture: Where Does the Shared Logic Live?](https://www.milanjovanovic.tech/blog/vertical-slice-architecture-where-does-the-shared-logic-live)
-- [Axum Framework](https://github.com/tokio-rs/axum)
-- [SQLx](https://github.com/launchbadge/sqlx)
-- [Jsonwebtoken](https://github.com/Keats/jsonwebtoken)
+- **Async/Await**: Tokio runtime enables high concurrency
+- **Connection Pooling**: SQLx handles efficient DB connections
+- **Type Safety**: Compile-time guarantees reduce runtime errors
