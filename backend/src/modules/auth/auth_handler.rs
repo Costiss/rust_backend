@@ -81,7 +81,6 @@ pub async fn sign_in(
 
     // Verify password
     let hash = user.password_hash().to_string();
-    println!("Verifying password for user {}: {}", email.as_str(), hash);
     let password_valid = PasswordService::verify_password(&payload.password, &hash)?;
 
     if !password_valid {
