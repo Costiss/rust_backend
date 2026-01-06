@@ -7,8 +7,13 @@ use crate::{
     modules::{
         auth::services::jwt_service::JwtService, users::services::user_service::UserService,
     },
-    shared::services::RedisCacheService,
+    shared::RedisCacheService,
 };
+
+/**
+    Atomic reference counted application state shared across the application.
+*/
+pub type AppContext = Arc<AppState>;
 
 pub struct AppState {
     pub config: Config,
@@ -22,7 +27,7 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub async fn initialize() -> Arc<Self> {
+    pub async fn initialize() -> AppContext {
         dotenv::dotenv().ok();
         let config = Config::from_env().expect("Failed to load configuration");
 
