@@ -1,7 +1,9 @@
 use crate::modules::auth::dto::{AuthResponse, RefreshTokenRequest, SignInRequest, SignUpRequest};
+use crate::modules::auth::middleware::router::{protected_route, public_router};
+use crate::modules::auth::middleware::AuthenticatedUser;
 use crate::modules::auth::services::jwt_service::JwtService;
 use crate::modules::auth::services::password_service::PasswordService;
-use crate::shared::app_state::AppState;
+use crate::shared::app_state::{AppContext, AppState};
 use crate::shared::AppError;
 use axum::{extract::State, Json};
 use axum::{routing::post, Router};
@@ -13,11 +15,14 @@ pub struct AuthState {
     pub jwt_service: JwtService,
 }
 
-pub fn auth_routes() -> Router<Arc<AppState>> {
-    Router::new()
+pub fn auth_routes(ctx: &AppContext) -> Router<Arc<AppState>> {
+    let public = public_router()
         .route("/api/auth/sign-up", post(sign_up))
-        .route("/api/auth/sign-in", post(sign_in))
-        .route("/api/auth/refresh", post(refresh))
+        .route("/api/auth/sign-in", post(sign_in));
+
+    let protected = protected_route(Router::new().route("/api/auth/refresh", post(refresh)), ctx);
+
+    public.merge(protected)
 }
 
 /// Create a new user account
@@ -68,13 +73,13 @@ pub async fn sign_up(
     let user_id = created.id_string();
 
     // Generate tokens
-    let access_token = app
+    let (access_token, claims) = app
         .jwt_service
         .generate_access_token(&user_id, email.as_str())?;
-    let refresh_token = app.jwt_service.generate_refresh_token(&user_id)?;
+    let refresh_token = app.jwt_service.generate_refresh_token()?;
 
     app.jwt_service
-        .save_refresh_token(&user_id, &refresh_token)
+        .save_refresh_token(&claims.jti, &refresh_token)
         .await?;
 
     Ok(Json(AuthResponse {
@@ -127,14 +132,13 @@ pub async fn sign_in(
     let user_id = user.id_string();
 
     // Generate tokens
-    let access_token = app
+    let (access_token, claims) = app
         .jwt_service
         .generate_access_token(&user_id, email.as_str())?;
-    let refresh_token = app.jwt_service.generate_refresh_token(&user_id)?;
+    let refresh_token = app.jwt_service.generate_refresh_token()?;
 
-    // Store refresh token
     app.jwt_service
-        .save_refresh_token(&user_id, &refresh_token)
+        .save_refresh_token(&claims.jti, &refresh_token)
         .await?;
 
     Ok(Json(AuthResponse {
@@ -162,42 +166,44 @@ pub async fn sign_in(
     tag = "Authentication"
 )]
 pub async fn refresh(
+    user: AuthenticatedUser,
     State(state): State<Arc<AppState>>,
     Json(payload): Json<RefreshTokenRequest>,
 ) -> Result<Json<AuthResponse>, AppError> {
-    // Get user_id from the stored token
     let stored_token = state
         .jwt_service
-        .get_latest_refresh_token_by_user_id_with_token(&payload.refresh_token)
-        .await?;
-
-    let (user_id, stored_token_plain) = stored_token
-        .ok_or_else(|| AppError::AuthenticationError("Invalid refresh token".to_string()))?;
+        .get_refresh_token(user.jti.as_str())
+        .await?
+        .ok_or_else(|| {
+            AppError::AuthenticationError("Refresh token not found or expired".to_string())
+        })?;
 
     // Verify the provided token matches the stored token (both are plain, not hashed)
-    if payload.refresh_token != stored_token_plain {
+    if payload.refresh_token != stored_token {
         return Err(AppError::AuthenticationError(
             "Invalid refresh token".to_string(),
         ));
     }
 
-    let user = state.user_service.get_user_by_id(&user_id).await?;
-    let user_email = user
-        .ok_or_else(|| AppError::NotFound("User not found".to_string()))?
-        .email()
-        .as_str()
-        .to_string();
-
-    // Generate new tokens
-    let new_access_token = state
+    let (new_access_token, claims) = state
         .jwt_service
-        .generate_access_token(&user_id, &user_email)?;
-    let new_refresh_token = state.jwt_service.generate_refresh_token(&user_id)?;
+        .generate_access_token(&user.user_id, &user.email)?;
+    let new_refresh_token = state.jwt_service.generate_refresh_token()?;
 
     state
         .jwt_service
-        .save_refresh_token(&user_id, &new_refresh_token)
+        .save_refresh_token(&claims.jti, &new_refresh_token)
         .await?;
+    tokio::spawn({
+        let jwt_service = state.jwt_service.clone();
+        let jti = user.jti.clone();
+        async move {
+            if let Err(e) = jwt_service.delete_refresh_token(&jti).await {
+                tracing::error!("failed to delete old refresh token: {}", e);
+            }
+            tracing::debug!("old refresh token deleted successfully");
+        }
+    });
 
     Ok(Json(AuthResponse {
         access_token: new_access_token,

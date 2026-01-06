@@ -24,6 +24,8 @@ pub struct AuthenticatedUser {
     pub issued_at: i64,
     /// Token expiration timestamp
     pub expires_at: i64,
+    /// Token ID (jti claim)
+    pub jti: String,
 }
 
 impl From<TokenClaims> for AuthenticatedUser {
@@ -33,6 +35,7 @@ impl From<TokenClaims> for AuthenticatedUser {
             email: claims.email,
             issued_at: claims.iat,
             expires_at: claims.exp,
+            jti: claims.jti,
         }
     }
 }
@@ -105,9 +108,11 @@ pub async fn jwt_validation_middleware(
     next: Next,
 ) -> axum::response::Response {
     // Extract Authorization header
-    let auth_header = request
-        .headers()
-        .get("Authorization")
+    tracing::debug!("validating JWT for request: {}", request.uri());
+    let authorization = request.headers().get("Authorization");
+
+    tracing::debug!("Authorization header: {:?}", authorization);
+    let auth_header = authorization
         .and_then(|h| h.to_str().ok())
         .and_then(|h| h.strip_prefix("Bearer "));
 

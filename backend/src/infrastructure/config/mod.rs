@@ -11,7 +11,10 @@ pub struct Config {
     pub redis_url: String,
 
     pub jwt_secret: String,
+    #[serde(default = "default_jwt_expiry_hours")]
     pub jwt_expiry_hours: i64,
+    #[serde(default = "default_refresh_token_expiry_days")]
+    pub refresh_token_expiry_days: u64,
 }
 
 impl Config {
@@ -22,6 +25,14 @@ impl Config {
     pub fn server_addr(&self) -> String {
         format!("{}:{}", self.server_host, self.server_port)
     }
+}
+
+fn default_refresh_token_expiry_days() -> u64 {
+    7
+}
+
+fn default_jwt_expiry_hours() -> i64 {
+    1
 }
 
 #[cfg(test)]
@@ -40,6 +51,7 @@ mod tests {
 
             jwt_secret: "secret".to_string(),
             jwt_expiry_hours: 24,
+            refresh_token_expiry_days: 7,
         };
         assert_eq!(config.server_addr(), "127.0.0.1:3000");
     }

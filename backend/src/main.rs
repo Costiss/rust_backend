@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Build router with OpenAPI documentation and Swagger UI
     let app = Router::new()
-        .merge(auth_routes())
+        .merge(auth_routes(&app_state))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .with_state(app_state);
 

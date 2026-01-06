@@ -1,13 +1,16 @@
+use core::time;
+
 use crate::{
-    infrastructure::database::Database,
-    modules::auth::repository::refresh_token::RefreshTokenRepository, shared::AppError, AppResult,
+    infrastructure::config::Config,
+    shared::{AppError, CacheService, RedisCacheService},
+    AppResult,
 };
 use base64::Engine;
 use chrono::Utc;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use ulid::Ulid;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenClaims {
@@ -16,26 +19,33 @@ pub struct TokenClaims {
     pub iat: i64, // issued at
     pub exp: i64, // expiration
     pub token_type: String,
+    pub jti: String,
 }
 
 #[derive(Clone)]
 pub struct JwtService {
     secret: String,
     expiry_hours: i64,
-    pool: Database,
+    refresh_expiry_days: u64,
+    cache: RedisCacheService,
 }
 
 impl JwtService {
-    pub fn new(secret: String, expiry_hours: i64, pool: &Database) -> Self {
+    pub fn new(config: &Config, cache: &RedisCacheService) -> Self {
         Self {
-            secret,
-            expiry_hours,
-            pool: pool.clone(),
+            secret: config.jwt_secret.clone(),
+            expiry_hours: config.jwt_expiry_hours,
+            refresh_expiry_days: config.refresh_token_expiry_days,
+            cache: cache.clone(),
         }
     }
 
     /// Generate a new access token
-    pub fn generate_access_token(&self, user_id: &String, email: &str) -> Result<String, AppError> {
+    pub fn generate_access_token(
+        &self,
+        user_id: &String,
+        email: &str,
+    ) -> Result<(String, TokenClaims), AppError> {
         let now = Utc::now().timestamp();
         let exp = now + (self.expiry_hours * 3600);
 
@@ -45,14 +55,18 @@ impl JwtService {
             iat: now,
             exp,
             token_type: "access".to_string(),
+            jti: Uuid::new_v4().to_string(),
         };
 
         let key = EncodingKey::from_secret(self.secret.as_bytes());
-        encode(&Header::default(), &claims, &key).map_err(|e| AppError::JwtError(e.to_string()))
+        let token = encode(&Header::default(), &claims, &key)
+            .map_err(|e| AppError::JwtError(e.to_string()))?;
+
+        Ok((token, claims))
     }
 
     /// Generate a refresh token using random 32 bytes encoded in base64
-    pub fn generate_refresh_token(&self, _user_id: &String) -> Result<String, AppError> {
+    pub fn generate_refresh_token(&self) -> Result<String, AppError> {
         let mut rng = rand::thread_rng();
         let mut bytes = vec![0u8; 32];
         rng.fill(&mut bytes[..]);
@@ -75,37 +89,39 @@ impl JwtService {
         self.expiry_hours
     }
 
-    pub async fn save_refresh_token(&self, user_id: &str, refresh_token: &str) -> AppResult<()> {
-        // Store the refresh token plainly (it's already a secure random string)
-        let id = Ulid::new().to_string();
-        let expires_at = Utc::now() + chrono::Duration::days(7);
-
-        self.pool
-            .save_refresh_token(&id, user_id, refresh_token, expires_at)
-            .await
+    fn refresh_token_cache_key(&self, jti: &str) -> String {
+        format!("refresh_token:{}", jti)
     }
 
-    pub async fn get_latest_refresh_token_by_user_id(
-        &self,
-        user_id: &str,
-    ) -> AppResult<Option<(String,)>> {
-        self.pool.get_latest_refresh_token_by_user_id(user_id).await
+    pub async fn save_refresh_token(&self, jti: &str, refresh_token: &str) -> AppResult<()> {
+        let key = self.refresh_token_cache_key(jti);
+
+        let ttl = time::Duration::from_secs(self.refresh_expiry_days * 24 * 3600);
+
+        self.cache.set(&key, &refresh_token, Some(ttl)).await?;
+
+        Ok(())
     }
 
-    /// Get user_id and token hash from a refresh token
-    pub async fn get_latest_refresh_token_by_user_id_with_token(
-        &self,
-        refresh_token: &str,
-    ) -> AppResult<Option<(String, String)>> {
-        // Try to find the token in database and return user_id and hash
-        self.pool
-            .get_user_id_from_refresh_token(refresh_token)
-            .await
+    pub async fn get_refresh_token(&self, jti: &str) -> AppResult<Option<String>> {
+        let key = self.refresh_token_cache_key(jti);
+        match self.cache.get::<String>(&key).await {
+            Ok(token) => Ok(Some(token)),
+            Err(_) => Ok(None),
+        }
+    }
+
+    pub async fn delete_refresh_token(&self, jti: &str) -> AppResult<()> {
+        let key = self.refresh_token_cache_key(jti);
+        self.cache.delete(&key).await?;
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use ulid::Ulid;
+
     use super::*;
     use std::sync::Mutex;
 
@@ -195,6 +211,7 @@ mod tests {
             iat: now,
             exp,
             token_type: "access".to_string(),
+            jti: Uuid::new_v4().to_string(),
         };
 
         let key = jsonwebtoken::EncodingKey::from_secret(secret.as_bytes());
@@ -235,6 +252,7 @@ mod tests {
             iat: now,
             exp,
             token_type: "refresh".to_string(),
+            jti: Uuid::new_v4().to_string(),
         };
 
         let key = jsonwebtoken::EncodingKey::from_secret(secret.as_bytes());

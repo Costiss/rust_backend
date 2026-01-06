@@ -42,9 +42,9 @@ impl AppState {
         let redis_client = redis::create_redis_client(&config)
             .await
             .expect("Failed to create Redis client");
+        let cache = RedisCacheService::new(redis_client.clone());
 
-        let jwt_service =
-            JwtService::new(config.jwt_secret.clone(), config.jwt_expiry_hours, &pool);
+        let jwt_service = JwtService::new(&config, &cache);
 
         let user_service = UserService::new(&pool);
 
