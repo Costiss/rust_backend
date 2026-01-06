@@ -3,10 +3,11 @@ use std::sync::Arc;
 use sqlx::PgPool;
 
 use crate::{
-    infrastructure::{config::Config, database},
+    infrastructure::{config::Config, database, redis},
     modules::{
         auth::services::jwt_service::JwtService, users::services::user_service::UserService,
     },
+    shared::services::RedisCacheService,
 };
 
 pub struct AppState {
@@ -16,6 +17,8 @@ pub struct AppState {
     pub jwt_service: JwtService,
 
     pub user_service: UserService,
+
+    pub cache_service: RedisCacheService,
 }
 
 impl AppState {
@@ -31,16 +34,23 @@ impl AppState {
         .expect("Failed to create database pool");
         tracing::info!("Database connection established");
 
+        let redis_client = redis::create_redis_client(&config)
+            .await
+            .expect("Failed to create Redis client");
+
         let jwt_service =
             JwtService::new(config.jwt_secret.clone(), config.jwt_expiry_hours, &pool);
 
         let user_service = UserService::new(&pool);
+
+        let cache_service = RedisCacheService::new(redis_client);
 
         Arc::new(AppState {
             pool,
             jwt_service,
             config,
             user_service,
+            cache_service,
         })
     }
 }

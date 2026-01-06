@@ -5,7 +5,11 @@ use serde::Deserialize;
 pub struct Config {
     pub server_host: String,
     pub server_port: u16,
+
     pub database_url: String,
+
+    pub redis_url: String,
+
     pub jwt_secret: String,
     pub jwt_expiry_hours: i64,
 }
@@ -29,7 +33,11 @@ mod tests {
         let config = Config {
             server_host: "127.0.0.1".to_string(),
             server_port: 3000,
+
             database_url: "postgres://localhost/db".to_string(),
+
+            redis_url: "redis://localhost:6379".to_string(),
+
             jwt_secret: "secret".to_string(),
             jwt_expiry_hours: 24,
         };
