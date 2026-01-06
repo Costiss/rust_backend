@@ -2,6 +2,9 @@
 use axum::Router;
 use prontua_backend::modules::auth::auth_handler::auth_routes;
 use prontua_backend::shared::app_state::AppState;
+use prontua_backend::shared::openapi::ApiDoc;
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -16,15 +19,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!("Starting Prontua Backend");
     tracing::info!("Server will listen on {}", server_addr);
+    tracing::info!("OpenAPI Spec: http://{}/api-docs/openapi.json", server_addr);
+    tracing::info!("Swagger UI: http://{}/swagger-ui/", server_addr);
 
-    // Run migrations (for now, you need to create them manually with sqlx migrate add)
-    // sqlx::migrate!("./migrations")
-    //     .run(&pool)
-    //     .await
-    //     .expect("Failed to run migrations");
-
-    // Build router
-    let app = Router::new().merge(auth_routes()).with_state(app_state);
+    // Build router with OpenAPI documentation and Swagger UI
+    let app = Router::new()
+        .merge(auth_routes())
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
+        .with_state(app_state);
 
     // Run server
     let listener = tokio::net::TcpListener::bind(&server_addr)

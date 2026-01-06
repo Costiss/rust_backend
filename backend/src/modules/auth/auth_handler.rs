@@ -20,7 +20,27 @@ pub fn auth_routes() -> Router<Arc<AppState>> {
         .route("/api/auth/refresh", post(refresh))
 }
 
-/// Sign up handler - creates a new user and returns tokens
+/// Create a new user account
+///
+/// Register a new user with an email and password. The password must meet minimum requirements:
+/// - Minimum 8 characters, maximum 128 characters
+/// - At least one uppercase letter
+/// - At least one lowercase letter
+/// - At least one digit
+///
+/// Returns JWT tokens for immediate authentication.
+#[utoipa::path(
+    post,
+    path = "/api/auth/sign-up",
+    request_body = SignUpRequest,
+    responses(
+        (status = 200, description = "User created successfully", body = AuthResponse),
+        (status = 400, description = "Invalid email format or weak password"),
+        (status = 409, description = "User with this email already exists"),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "Authentication"
+)]
 pub async fn sign_up(
     State(app): State<Arc<AppState>>,
     Json(payload): Json<SignUpRequest>,
@@ -65,7 +85,22 @@ pub async fn sign_up(
     }))
 }
 
-/// Sign in handler - authenticates user and returns tokens
+/// Authenticate user with email and password
+///
+/// Sign in with existing credentials to obtain JWT tokens.
+/// Returns the same token structure as sign-up.
+#[utoipa::path(
+    post,
+    path = "/api/auth/sign-in",
+    request_body = SignInRequest,
+    responses(
+        (status = 200, description = "Authentication successful", body = AuthResponse),
+        (status = 400, description = "Invalid email format"),
+        (status = 401, description = "Invalid email or password"),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "Authentication"
+)]
 pub async fn sign_in(
     State(app): State<Arc<AppState>>,
     Json(payload): Json<SignInRequest>,
@@ -110,7 +145,22 @@ pub async fn sign_in(
     }))
 }
 
-/// Refresh token handler - exchanges refresh token for new access token
+/// Exchange refresh token for new access token
+///
+/// Use the refresh token obtained from sign-up or sign-in to get a new access token
+/// without re-entering credentials. Returns a new pair of tokens.
+#[utoipa::path(
+    post,
+    path = "/api/auth/refresh",
+    request_body = RefreshTokenRequest,
+    responses(
+        (status = 200, description = "Token refresh successful", body = AuthResponse),
+        (status = 401, description = "Invalid or expired refresh token"),
+        (status = 404, description = "User not found"),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "Authentication"
+)]
 pub async fn refresh(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<RefreshTokenRequest>,
