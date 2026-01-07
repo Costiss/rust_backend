@@ -1,4 +1,4 @@
-# Prontua Backend
+# Rust Backend
 
 A domain-centric modular monolith backend built with Rust, featuring user authentication, JWT-based authorization, and PostgreSQL persistence.
 
@@ -67,7 +67,6 @@ This installs the SQLx command-line tool with PostgreSQL support only (without r
 
    ```bash
    git clone <repository-url>
-   cd prontua/backend
    ```
 
 2. **Setup environment variables**:
@@ -128,8 +127,8 @@ The `docker-compose.yml` file provides auxiliary services for local development:
 
 ```yaml
 services:
-  valkey:      # Redis-compatible cache (port 6379)
-  postgres:    # PostgreSQL database (port 5432)
+  valkey: # Redis-compatible cache (port 6379)
+  postgres: # PostgreSQL database (port 5432)
 ```
 
 **Using Docker Compose:**
@@ -140,6 +139,7 @@ services:
 - **Remove volumes** (reset database): `docker-compose down -v`
 
 **Environment Variables** for docker-compose services:
+
 - PostgreSQL: `postgres://postgres:postgres@localhost:5432/postgres`
 - Valkey: `redis://localhost:6379`
 
@@ -179,13 +179,13 @@ SQLx doesn't support automatic rollbacks. To revert changes:
 
 ### Environment Variables
 
-| Variable           | Description                        | Default                                               |
-| ------------------ | ---------------------------------- | ----------------------------------------------------- |
-| `SERVER_HOST`      | Server binding address             | `127.0.0.1`                                           |
-| `SERVER_PORT`      | Server port                        | `3000`                                                |
-| `DATABASE_URL`     | PostgreSQL connection string       | `postgres://postgres:postgres@localhost:5432/prontua` |
-| `JWT_SECRET`       | Secret key for JWT signing         | `your-super-secret-jwt-key`                           |
-| `JWT_EXPIRY_HOURS` | JWT token expiration time in hours | `24`                                                  |
+| Variable           | Description                        | Default                                                |
+| ------------------ | ---------------------------------- | ------------------------------------------------------ |
+| `SERVER_HOST`      | Server binding address             | `127.0.0.1`                                            |
+| `SERVER_PORT`      | Server port                        | `3000`                                                 |
+| `DATABASE_URL`     | PostgreSQL connection string       | `postgres://postgres:postgres@localhost:5432/postgres` |
+| `JWT_SECRET`       | Secret key for JWT signing         | `your-super-secret-jwt-key`                            |
+| `JWT_EXPIRY_HOURS` | JWT token expiration time in hours | `24`                                                   |
 
 ## Development
 
