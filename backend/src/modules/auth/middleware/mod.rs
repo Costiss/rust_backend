@@ -146,6 +146,7 @@ mod tests {
             iat: Utc::now().timestamp(),
             exp: Utc::now().timestamp() + 3600,
             token_type: "access".to_string(),
+            jti: uuid::Uuid::new_v4().to_string(),
         };
 
         let user: AuthenticatedUser = claims.into();

@@ -1,10 +1,10 @@
-/// Redis implementation of the CacheService trait
-use super::cache::{CacheError, CacheResult, CacheService};
 use async_trait::async_trait;
 use redis::aio::ConnectionManager;
 use serde::{de::DeserializeOwned, Serialize};
 use std::time::Duration;
 use tracing::{debug, error};
+
+use crate::shared::{CacheError, CacheResult, CacheService};
 
 /// Redis cache service implementation
 #[derive(Clone)]
