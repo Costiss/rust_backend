@@ -11,10 +11,9 @@ pub mod result {
 
     impl<T> ResultExt<T> for AppResult<T> {
         fn context(self, msg: &str) -> AppResult<T> {
-            self.map_err(|err| match err {
-                AppError::DatabaseError(e) => AppError::DatabaseError(format!("{}: {}", msg, e)),
-                AppError::InternalError(e) => AppError::InternalError(format!("{}: {}", msg, e)),
-                other => other,
+            self.map_err(|mut err| {
+                err.message = format!("{}: {}", msg, err.message);
+                err
             })
         }
     }
@@ -41,9 +40,7 @@ mod tests {
 
     #[test]
     fn test_result_ext() {
-        let err: result::AppResult<i32> = Err(crate::shared::errors::AppError::InternalError(
-            "test".to_string(),
-        ));
+        let err: result::AppResult<i32> = Err(crate::shared::errors::AppError::internal("test"));
         let result = err.context("Additional context");
         assert!(result.is_err());
     }

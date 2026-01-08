@@ -2,6 +2,7 @@ use crate::{
     infrastructure::database::Database, modules::users::user_model::User,
     shared::objects::email::Email, AppResult,
 };
+use chrono::NaiveDate;
 use sqlx::Row;
 use ulid::Ulid;
 
@@ -12,6 +13,7 @@ pub trait UserRepository: Send + Sync {
         id: &str,
         email: &str,
         password_hash: &str,
+        birthdate: NaiveDate,
         created_at: chrono::DateTime<chrono::Utc>,
         updated_at: chrono::DateTime<chrono::Utc>,
     ) -> AppResult<()>;
@@ -28,15 +30,17 @@ impl UserRepository for Database {
         id: &str,
         email: &str,
         password_hash: &str,
+        birthdate: NaiveDate,
         created_at: chrono::DateTime<chrono::Utc>,
         updated_at: chrono::DateTime<chrono::Utc>,
     ) -> AppResult<()> {
         sqlx::query(
-            "INSERT INTO users (id, email, password_hash, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)"
+            "INSERT INTO users (id, email, password_hash, birthdate, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)"
         )
         .bind(id)
         .bind(email)
         .bind(password_hash)
+        .bind(birthdate)
         .bind(created_at)
         .bind(updated_at)
         .execute(self)

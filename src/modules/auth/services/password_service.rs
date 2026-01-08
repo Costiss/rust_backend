@@ -20,10 +20,10 @@ impl PasswordService {
             ARGON2
                 .hash_password(password.as_bytes(), &salt)
                 .map(|hash| hash.to_string())
-                .map_err(|e| AppError::InternalError(e.to_string()))
+                .map_err(|e| AppError::internal(e.to_string()))
         })
         .await
-        .map_err(|e| AppError::InternalError(format!("Task join error: {}", e)))?
+        .map_err(|e| AppError::internal(format!("Task join error: {}", e)))?
     }
 
     /// Verify a plain text password against an Argon2 hash asynchronously
@@ -34,16 +34,16 @@ impl PasswordService {
 
         tokio::task::spawn_blocking(move || {
             let parsed_hash =
-                PasswordHash::new(&hash).map_err(|e| AppError::InternalError(e.to_string()))?;
+                PasswordHash::new(&hash).map_err(|e| AppError::internal(e.to_string()))?;
 
             match ARGON2.verify_password(plain.as_bytes(), &parsed_hash) {
                 Ok(()) => Ok(true),
                 Err(argon2::password_hash::Error::Password) => Ok(false),
-                Err(e) => Err(AppError::InternalError(e.to_string())),
+                Err(e) => Err(AppError::internal(e.to_string())),
             }
         })
         .await
-        .map_err(|e| AppError::InternalError(format!("Task join error: {}", e)))?
+        .map_err(|e| AppError::internal(format!("Task join error: {}", e)))?
     }
 }
 

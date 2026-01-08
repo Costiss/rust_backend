@@ -1,0 +1,21 @@
+info:
+  name: refresh-token
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{base_url}}/api/auth/refresh"
+  body:
+    type: json
+    data: |-
+      {
+        "refresh_token": "B_6lA0vrwYRaF4z8y1U-WpZ2lag5Mk7neWx8CnwNd8w"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

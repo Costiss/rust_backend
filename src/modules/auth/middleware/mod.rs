@@ -76,9 +76,8 @@ where
             .get::<AuthenticatedUser>()
             .cloned()
             .ok_or_else(|| {
-                AppError::AuthenticationError(
-                    "Missing authentication credentials. Apply jwt_validation_middleware to this route"
-                        .to_string(),
+                AppError::authentication(
+                    "Missing authentication credentials. Apply jwt_validation_middleware to this route",
                 )
             })
     }
@@ -92,15 +91,18 @@ and makes the authenticated user available to subsequent handlers via request ex
 
 Example Usage:
 
-    use axum::middleware;
-    use crate::modules::auth::middleware::jwt_validation_middleware;
+```ignore
+use axum::middleware;
+use crate::modules::auth::middleware::jwt_validation_middleware;
 
-    let protected_routes = Router::new()
-        .route("/api/protected", get(protected_handler))
-        .layer(middleware::from_fn_with_state(
-            app_state.clone(),
-            jwt_validation_middleware,
-        ));
+// Example structure - requires actual setup
+let protected_routes = Router::new()
+    .route("/api/protected", get(protected_handler))
+    .layer(middleware::from_fn_with_state(
+        app_state.clone(),
+        jwt_validation_middleware,
+    ));
+```
 **/
 pub async fn jwt_validation_middleware(
     State(state): State<Arc<AppState>>,
@@ -117,8 +119,7 @@ pub async fn jwt_validation_middleware(
         .and_then(|h| h.strip_prefix("Bearer "));
 
     match auth_header {
-        None => AppError::AuthenticationError("Missing authorization header".to_string())
-            .into_response(),
+        None => AppError::authentication("Missing authorization header").into_response(),
         Some(token) => {
             match state.jwt_service.validate_token(token) {
                 Ok(claims) => {

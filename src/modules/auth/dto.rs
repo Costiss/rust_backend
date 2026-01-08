@@ -10,6 +10,9 @@ pub struct SignUpRequest {
     /// Password (min 8 chars, must contain uppercase, lowercase, and number)
     #[schema(example = "SecurePassword123")]
     pub password: String,
+    // User's Birthdate
+    #[schema(example = "1990-01-01")]
+    pub birthdate: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]

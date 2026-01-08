@@ -59,8 +59,8 @@ impl<Cache: CacheService> JwtService<Cache> {
         };
 
         let key = EncodingKey::from_secret(self.secret.as_bytes());
-        let token = encode(&Header::default(), &claims, &key)
-            .map_err(|e| AppError::JwtError(e.to_string()))?;
+        let token =
+            encode(&Header::default(), &claims, &key).map_err(|e| AppError::jwt(e.to_string()))?;
 
         Ok((token, claims))
     }
@@ -82,7 +82,7 @@ impl<Cache: CacheService> JwtService<Cache> {
 
         decode::<TokenClaims>(token, &key, &validation)
             .map(|data| data.claims)
-            .map_err(|e| AppError::JwtError(e.to_string()))
+            .map_err(|e| AppError::jwt(e.to_string()))
     }
 
     pub fn get_expiry_hours(&self) -> i64 {
@@ -273,7 +273,10 @@ mod tests {
             "validate_token should fail with tampered token"
         );
         match result {
-            Err(AppError::JwtError(_)) => {}
+            Err(err) => {
+                // Check that the error code is JWT related
+                assert_eq!(err.code, "JWT_ERROR");
+            }
             _ => panic!("Expected JwtError for invalid token"),
         }
     }
@@ -295,7 +298,10 @@ mod tests {
             "validate_token should fail with malformed token"
         );
         match result {
-            Err(AppError::JwtError(_)) => {}
+            Err(err) => {
+                // Check that the error code is JWT related
+                assert_eq!(err.code, "JWT_ERROR");
+            }
             _ => panic!("Expected JwtError for malformed token"),
         }
     }

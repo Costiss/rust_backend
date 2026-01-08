@@ -3,6 +3,7 @@ use crate::modules::auth::middleware::router::{protected_route, public_router};
 use crate::modules::auth::middleware::AuthenticatedUser;
 use crate::modules::auth::services::jwt_service::JwtService;
 use crate::modules::auth::services::password_service::PasswordService;
+use crate::modules::users::objects::birthdate::BirthDate;
 use crate::shared::app_state::{AppContext, AppState};
 use crate::shared::AppError;
 use axum::{extract::State, Json};
@@ -51,24 +52,23 @@ pub async fn sign_up(
     Json(payload): Json<SignUpRequest>,
 ) -> Result<Json<AuthResponse>, AppError> {
     // Validate email and password using value objects
-    let email = crate::shared::objects::email::Email::new(&payload.email)
-        .map_err(AppError::ValidationError)?;
+    let email =
+        crate::shared::objects::email::Email::new(&payload.email).map_err(AppError::validation)?;
 
     let password = crate::modules::users::objects::password::Password::new(&payload.password)
-        .map_err(AppError::ValidationError)?;
+        .map_err(AppError::validation)?;
+    let birthdate = BirthDate::new(&payload.birthdate)?;
 
     let existing = app.user_service.get_user_by_email(email.as_str()).await?;
     if existing.is_some() {
-        return Err(AppError::ValidationError(
-            "User with this email already exists".to_string(),
-        ));
+        return Err(AppError::validation("User with this email already exists"));
     }
 
     // Hash password
     let password_hash = PasswordService::hash_password(password.as_str()).await?;
     let created = app
         .user_service
-        .create_user(email.as_str(), password_hash.as_str())
+        .create_user(email.as_str(), password_hash.as_str(), birthdate)
         .await?;
     let user_id = created.id_string();
 
@@ -110,23 +110,21 @@ pub async fn sign_in(
     State(app): State<Arc<AppState>>,
     Json(payload): Json<SignInRequest>,
 ) -> Result<Json<AuthResponse>, AppError> {
-    let email = crate::shared::objects::email::Email::new(&payload.email)
-        .map_err(AppError::ValidationError)?;
+    let email =
+        crate::shared::objects::email::Email::new(&payload.email).map_err(AppError::validation)?;
 
     let user = app
         .user_service
         .get_user_by_email(email.as_str())
         .await?
-        .ok_or_else(|| AppError::AuthenticationError("Invalid email or password".to_string()))?;
+        .ok_or_else(|| AppError::authentication("Invalid email or password"))?;
 
     // Verify password
     let hash = user.password_hash().to_string();
     let password_valid = PasswordService::verify_password(&payload.password, &hash).await?;
 
     if !password_valid {
-        return Err(AppError::AuthenticationError(
-            "Invalid email or password".to_string(),
-        ));
+        return Err(AppError::authentication("Invalid email or password"));
     }
 
     let user_id = user.id_string();
@@ -174,15 +172,11 @@ pub async fn refresh(
         .jwt_service
         .get_refresh_token(user.jti.as_str())
         .await?
-        .ok_or_else(|| {
-            AppError::AuthenticationError("Refresh token not found or expired".to_string())
-        })?;
+        .ok_or_else(|| AppError::authentication("Refresh token not found or expired"))?;
 
     // Verify the provided token matches the stored token (both are plain, not hashed)
     if payload.refresh_token != stored_token {
-        return Err(AppError::AuthenticationError(
-            "Invalid refresh token".to_string(),
-        ));
+        return Err(AppError::authentication("Invalid refresh token"));
     }
 
     let (new_access_token, claims) = state

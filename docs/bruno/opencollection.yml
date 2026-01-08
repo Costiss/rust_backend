@@ -1,0 +1,25 @@
+opencollection: 1.0.0
+
+info:
+  name: Prontua
+config:
+  proxy:
+    inherit: true
+    config:
+      protocol: http
+      hostname: ""
+      port: ""
+      auth:
+        username: ""
+        password: ""
+      bypassProxy: ""
+
+request:
+  auth:
+    type: bearer
+    token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIwMUtFQjFRQUJYWTI3UFYxRTdIRE5ONFlWUSIsImVtYWlsIjoidXNlckBlbWFpbC5jb20iLCJpYXQiOjE3Njc3NDk5NTMsImV4cCI6MTc2NzgzNjM1MywidG9rZW5fdHlwZSI6ImFjY2VzcyIsImp0aSI6ImJiODU3NGQwLTdjMjQtNDMxZC1hYTA5LTI4NGQ3OThkNTdkOCJ9.ScHctSaZfzX2prbqzTLTUsOYUn_PMH6tL7LgVRmK5Mw
+bundled: false
+extensions:
+  ignore:
+    - node_modules
+    - .git

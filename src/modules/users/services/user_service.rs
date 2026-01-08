@@ -1,3 +1,4 @@
+use crate::modules::users::objects::birthdate::BirthDate;
 use crate::modules::users::repository::user::UserRepository;
 use crate::modules::users::user_model::User;
 use crate::shared::objects::email::Email;
@@ -14,15 +15,26 @@ impl UserService {
         UserService { pool: pool.clone() }
     }
 
-    pub async fn create_user(&self, email: &str, password_hash: &str) -> AppResult<User> {
+    pub async fn create_user(
+        &self,
+        email: &str,
+        password_hash: &str,
+        birthdate: BirthDate,
+    ) -> AppResult<User> {
         let id = Ulid::new();
         let now = Utc::now();
 
+        let email_obj = Email::new(email).map_err(AppError::validation)?;
         self.pool
-            .insert_user(&id.to_string(), email, password_hash, now, now)
+            .insert_user(
+                &id.to_string(),
+                email,
+                password_hash,
+                birthdate.as_date(),
+                now,
+                now,
+            )
             .await?;
-
-        let email_obj = Email::new(email).map_err(AppError::ValidationError)?;
 
         Ok(User::with_id(
             id,
